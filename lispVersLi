@@ -1,6 +1,8 @@
 ; par définiton 
 ;<expr-li> := « ( » <keyword> « . » <expr> « ) »
 ;
+;teste => sortie (interpréteur portacle)
+;(lispVersli '(if (> 1 2) 1 2))  =>  (:IF NIL (:CONST . 1) (:CONST . 2))
 
 (defun lispVersli(expr &optional env)
 (cond 
