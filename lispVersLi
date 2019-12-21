@@ -1,3 +1,7 @@
+; par définiton 
+;<expr-li> := « ( » <keyword> « . » <expr> « ) »
+;
+
 (defun lispVersli(expr &optional env)
 (cond 
 ;atome constant = littéral
