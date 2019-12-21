@@ -3,6 +3,8 @@
 ;
 ;teste => sortie (interpréteur portacle)
 ;(lispVersli '(if (> 1 2) 1 2))  =>  (:IF NIL (:CONST . 1) (:CONST . 2))
+;(lispVersli '(defun fibonacci (n) (cond ((> n 1) (+ (fibonacci (- n 1)) (fibonacci (- n 2)))) ((= n 1) 1) ((= n 0) 0))) ())
+; => (:MCALL SET-DEFUN (:CONST . FIBONACCI) NIL)
 
 (defun lispVersli(expr &optional env)
 (cond 
