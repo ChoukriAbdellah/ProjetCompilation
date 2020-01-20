@@ -39,7 +39,7 @@
 )
 
      
-(append (list (format nil "nano" #\linefeed) (list 1 2)))
+
 
  (defun expr-arith (expr env)
         
@@ -110,8 +110,38 @@
         )
   )       
 
+(defun queue-liste (expr env)
 
+		;; si la variable entrante de cdr est un atome, stocker l'instruction assembleur cdr
+		;; sinon retourner liste vide
+		(if (atom (cadr expr))
+                (list (format nil "(CDR ~a)~C" (cadr expr) #\linefeed) )
+		(list '())	
+		)
 
+	)
+
+;;Compile une line vide et la remplace par l'instruction assembleur NOP
+(defun compile-skip(line env)
+        (list (format nil "(NOP)~C"  #\linefeed) )
+
+)
+
+ (defun isOp (op)
+ 
+                (cond 
+                    ((equal op '+) T)
+                    ((equal op '-)  T)
+                    ((equal op '*) T)
+                    ((equal op '/)  T)
+                    ((numberp op)  T )
+                    ;else
+                    (t nil)
+
+                        )
+                                        
+                
+        )
 
 
 
@@ -178,38 +208,5 @@
 
 
 
-; compiler les while
-(defun compile-while (expr env)
-	;; variable local comp stockera les instructions apres compilation
-	;; variable true stockera les instructions apres compilation si la condition est vraie
-	;; variable length_t = nombre d'instruction de true
-	;; variable test stockera les instructions apres compilation de la condition du while
-	;; variable length_test = nombre d'instruction de test
-	;; variable boucle ; 
-	(let (comp true test length_t length_test boucle)
-		
-		;; compiler la condition du while
-		(setq test (compile-comp  (second expr) env)) 
-		(setf length_test (count-instruction test))
-		(setf comp (concatenate 'string comp (format nil "~a" test))) ;; stocker la condition
-
-		;; tester la condition
-		(setf comp (concatenate 'string comp (format nil "(CMP 0 R0) ~%")))
-
-		;; compiler et stocker la partie true et sa taille
-		(setq true (compile-line  (third expr) env))
-		(setf length_t (count-instruction true))
-
-		;; jump apres le while si la condition est fausse
-		(setf comp (concatenate 'string comp (format nil "(JEQ ~a) ~%" (+ length_t 1))))
-		(setf comp (concatenate 'string comp (format nil "~a" true))) ;; stocker les instructions du while
-		
-		(setf boucle (+ length_t 2 length_test))
-		(setf comp (concatenate 'string comp (format nil "(JMP ~a) ~%" (- 0 boucle) ))) ;; jump a la condition du while
-
-		;; retourner les instructions assembleur a la fin
-		(return-from compile-while comp)
-	)
-)
 
  
