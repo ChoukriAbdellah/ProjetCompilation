@@ -1,4 +1,3 @@
-
 ;; explication assembleur (+ 1 2) comp = (MOVE 1 R0) concat (push R0) concat (MOVE 2 R0) concat (POP R1) concat (ADD R1 R0)
 (defun concatString (list)
   "A non-recursive function that concatenates a list of strings."
@@ -39,7 +38,7 @@
 )
 
      
-
+(append (list (format nil "nano" #\linefeed) (list 1 2)))
 
  (defun expr-arith (expr env)
         
@@ -111,7 +110,7 @@
   )       
 
 (defun queue-liste (expr env)
-
+	;; variable local comp stockera les instructions apres compilation
 		;; si la variable entrante de cdr est un atome, stocker l'instruction assembleur cdr
 		;; sinon retourner liste vide
 		(if (atom (cadr expr))
@@ -127,7 +126,7 @@
 
 )
 
- (defun isOp (op)
+ (defun operateur? (op)
  
                 (cond 
                     ((equal op '+) T)
@@ -178,7 +177,8 @@
                 
                
         
-        )
+        ) 
+
         )
 )
 (defun expr-while(instruction env)
@@ -207,6 +207,142 @@
 )
 
 
+(defun comparateur?(op)
+		(cond 
+			((equal op '<)  T)
+			((equal op '>)  T)
+			((equal op '=)  T)
+			((equal op '<=) T)
+			((equal op '>=)  T)
+                        (t nil)
+		)
+		
+	
+)
+; remplacer les paramètres par leur registre
+(defun replace-params-reg (string_ env ) 
+	
+		(concatString (append 
+                
+		;;Parcours de la liste des paires dans l'environnement
+		(loop for arg in env do 
+			 ;;Le motif qui correspond au nom de la variable
+			(list  (format nil " R~a " (cdr arg))) ;;Le motif qui correspond à R suivi du numéro stocké dans l'env.
+			(list  (replace-all (list string_) 
+                        (list  (format nil " ~a " (car arg)))
+                        (list  (format nil " R~a " (cdr arg))) ));;Appel de la fonction pour remplacer <nomVar> par R<numVar>
+		)
+		(return-from replace-params-reg comp)
+	)
+)
+(defun replace-all (string part replacement &key (test #'char=))
+"Returns a new string in which all the occurences of the part 
+is replaced with replacement."
+    (with-output-to-string (out)
+      (loop with part-length = (length part)
+            for old-pos = 0 then (+ pos part-length)
+            for pos = (search part string
+                              :start2 old-pos
+                              :test test)
+            do (write-string string out
+                             :start old-pos
+                             :end (or pos (length string)))
+            when pos do (write-string replacement out)
+            while pos
+       )
+    )
+)
+; remplacer les paramètres par leur registre
+(defun replace-params-reg (string_ env ) 
+	(let  ( comp) 
+		(setf comp string_)
+		;;Parcours de la liste des paires dans l'environnement
+		(loop for arg in env do 
+			;(setf part ) ;;Le motif qui correspond au nom de la variable
+			;(setf replacement ) ;;Le motif qui correspond à R suivi du numéro stocké dans l'env.
+			(setf comp (replace-all comp
+                         (format nil " ~a " (car arg))
+                         (format nil " R~a " (cdr arg)) ));;Appel de la fonction pour remplacer <nomVar> par R<numVar>
+		)
+		(return-from replace-params-reg comp)
+        )
+)
+; compiler une ligne
+
+(defun compile-setf (expr env)
+	(concatString (append 
+		;; compiler la valeur a stocker dans la variable
+                        ( expr-arith  (third expr) env)
+                        ;; stocker la variable dans l'environement et lui affecter un registre
+                        (list (replace-params-reg (format nil "(MOVE R0 ~a ) ~%"   (second expr)) env))
+                
+	              )
+        )
+)
 
 
- 
+  
+(defun appel-de-fonction (call env)
+	;; variable local comp stockera les instructions apres compilation
+	;; variable local nbParam stockera le nombre de parametre de la fonction
+	(let (retour nbParam)
+		(setf nbParam 0)
+		;; pour tous les arguments
+                
+		(loop for arg in (reverse (cdr call)) do 
+			;; compiler les arguments et les empiler dans la pile
+
+			(setf retour (append retour (list (compile-line  arg env))  
+			(list (format nil "(PUSH R0) ~%" ) ) ) ) 
+			(setf nbParam (+ nbParam 1)) ; erreur!!
+		)
+		;; ordre d'appel :
+		;; 		empiler le nombre de parametre
+		;; 		stocker l'ancien FP
+		;; 		affecter le nouveau FP (egal SP actuel)
+		;; 		calculer et empile l'ancien SP (SP actuel plus le nombre de parametre + 1 [pour l'empilement du nombre de parametres])
+		;; 		empiler l'ancien FP
+		;; 		empiler l'ancien RA
+		;; 			sauter a la fonction appelee (stocker prochaine instruction dans RA)
+		;; 			fonction finie (qui a donc utilisee le return [RTN])
+		;; 		depiler et revenir a l'ancien RA 
+		;; 		depiler et revenir a l'ancien FP
+		;; 		depiler et revenir a l'ancien SP (revient a depiler tous les parametres)
+		;; 		recuperer l'ancien environemment 
+                        (setf retour (append retour
+                                (list (format nil "(PUSH ~a) ~%" nbParam))
+                                (list (format nil "(MOVE FP R1) ~%" ))
+                                (list (format nil "(MOVE SP FP) ~%" ))
+                                (list (format nil "(MOVE SP R2) ~%" ))
+                                (list (format nil "(MOVE ~a R3) ~%" (+ nbParam 1)))
+                                (list (format nil "(ADD R3 R2) ~%" ))
+                                (list (format nil "(PUSH R2) ~%" ))
+                                (list (format nil "(PUSH R1) ~%" ))
+                                (list (format nil "(PUSH RA) ~%" ))
+                                (list (format nil "(JSR ~a) ~%" (car call)))
+
+                                (list (format nil "(POP R1) ~%" ))
+                                (list (format nil "(MOVE R1 RA) ~%" ))
+
+                                (list (format nil "(POP R1) ~%" ))
+                                (list (format nil "(MOVE R1 FP) ~%" ))
+
+                                (list (format nil "(POP R1) ~%" ))
+                                (list (format nil "(MOVE R1 SP) ~%" ))
+                        ) )
+			(let (i)
+	                        (setf i (lastValueEnv env))
+                                (setf retour (append retour (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
+		                        (loop for argument in env do
+                                                (setf retour (append retour (list (format nil "(INCR R3) ~C" #\linefeed)) 
+                                                (list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
+                                                )
+                                
+                                                (setf i (+ i 1))
+		                        )
+                (setf retour (concatString retour))
+	                )
+(return-from appel-de-fonction retour)
+	)
+        
+)
