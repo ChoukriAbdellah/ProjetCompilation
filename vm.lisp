@@ -119,6 +119,16 @@
 		)
 
 	)
+; compiler les car de liste
+(defun tete-liste (expr env)
+	;; variable local comp stockera les instructions apres compilation
+	(if (atom (cadr expr))
+                (list (format nil "(CAR ~a)~C" (cadr expr) #\linefeed) )
+		(list '())	
+		)
+
+	)
+
 
 ;;Compile une line vide et la remplace par l'instruction assembleur NOP
 (defun compile-skip(line env)
@@ -282,67 +292,44 @@ is replaced with replacement."
 
 
   
-(defun appel-de-fonction (call env)
-	;; variable local comp stockera les instructions apres compilation
-	;; variable local nbParam stockera le nombre de parametre de la fonction
-	(let (retour nbParam)
-		(setf nbParam 0)
-		;; pour tous les arguments
-                
-		(loop for arg in (reverse (cdr call)) do 
-			;; compiler les arguments et les empiler dans la pile
+ 
 
-			(setf retour (append retour (list (compile-line  arg env))  
-			(list (format nil "(PUSH R0) ~%" ) ) ) ) 
-			(setf nbParam (+ nbParam 1)) ; erreur!!
-		)
-		;; ordre d'appel :
-		;; 		empiler le nombre de parametre
-		;; 		stocker l'ancien FP
-		;; 		affecter le nouveau FP (egal SP actuel)
-		;; 		calculer et empile l'ancien SP (SP actuel plus le nombre de parametre + 1 [pour l'empilement du nombre de parametres])
-		;; 		empiler l'ancien FP
-		;; 		empiler l'ancien RA
-		;; 			sauter a la fonction appelee (stocker prochaine instruction dans RA)
-		;; 			fonction finie (qui a donc utilisee le return [RTN])
-		;; 		depiler et revenir a l'ancien RA 
-		;; 		depiler et revenir a l'ancien FP
-		;; 		depiler et revenir a l'ancien SP (revient a depiler tous les parametres)
-		;; 		recuperer l'ancien environemment 
-                        (setf retour (append retour
-                                (list (format nil "(PUSH ~a) ~%" nbParam))
-                                (list (format nil "(MOVE FP R1) ~%" ))
-                                (list (format nil "(MOVE SP FP) ~%" ))
-                                (list (format nil "(MOVE SP R2) ~%" ))
-                                (list (format nil "(MOVE ~a R3) ~%" (+ nbParam 1)))
-                                (list (format nil "(ADD R3 R2) ~%" ))
-                                (list (format nil "(PUSH R2) ~%" ))
-                                (list (format nil "(PUSH R1) ~%" ))
-                                (list (format nil "(PUSH RA) ~%" ))
-                                (list (format nil "(JSR ~a) ~%" (car call)))
-
-                                (list (format nil "(POP R1) ~%" ))
-                                (list (format nil "(MOVE R1 RA) ~%" ))
-
-                                (list (format nil "(POP R1) ~%" ))
-                                (list (format nil "(MOVE R1 FP) ~%" ))
-
-                                (list (format nil "(POP R1) ~%" ))
-                                (list (format nil "(MOVE R1 SP) ~%" ))
-                        ) )
-			(let (i)
-	                        (setf i (lastValueEnv env))
-                                (setf retour (append retour (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
-		                        (loop for argument in env do
-                                                (setf retour (append retour (list (format nil "(INCR R3) ~C" #\linefeed)) 
-                                                (list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
-                                                )
-                                
-                                                (setf i (+ i 1))
-		                        )
-                (setf retour (concatString retour))
-	                )
-(return-from appel-de-fonction retour)
+;; fonction facile mais a modidier 
+; donner la valeur de la dernière variable d'environnement
+(defun lastValueEnv(env)
+	(if (null env)
+		4
+		(cdr (first (last env)))
 	)
-        
 )
+
+; ajoutee une paire pointée à une liste de paires pointées
+(defun consPair (env arg index)
+	;;Si l'environnement est null alors
+	(if (null env)
+		(setf env (list (cons arg index))) ;;Ajoute à la fin une liste de une paire pointée
+		(setf env (cons (car env) (consPair (cdr env) arg index) ))  ;;Sinon concatene avec la suite
+	)
+)
+
+
+(defun listLineToAsm (line env)
+	
+ 		;; switch sur les fonctions lisp que l'on peut compiler
+ 		;; chaque fonction retourne les instructions assembleurs permettant de faire ces operations
+ 		(cond 
+ 			((null line)(compile-skip line env)) ;; skip si la ligne est vide
+ 			((atom line) (expr-arith line env)) ;; compile expression si la ligne ne contient qu'un atome
+ 			((equal (car line) 'if) (expr-if line env)) ;; compile if
+ 			;((equal (car line) 'defun)  (compile-fct line env)) ;; compile fonction (si defun)
+ 			((equal (car line) 'while)  (expr-while line env)) ;; compile while 
+ 			((equal (car line) 'setf)  (compile-setf line env)) ;; compile setf
+ 			((equal (car line) 'car) (tete-liste line env)) ;; compile car
+ 			((equal (car line) 'cdr) (queue-liste line env)) ;; compile cdr
+ 			((operateur? (car line)) (expr-arith line env)) ;; compile expression si la ligne effectue une operation arithmetique
+ 			((comparateur?(car line))(expr-comparateur line env)) ;; compile comp si la ligne effectue une comparaison
+ 			((atom (car line)) (appel-de-fonction line env)) ;; compile appel de fonction si le premier element est nom (donc un atome)
+
+ 		)
+ 		
+ 	)
