@@ -313,7 +313,7 @@ is replaced with replacement."
 )
 
 
-(defun listLineToAsm (line env)
+(defun lispLineToAsm (line env)
 	
  		;; switch sur les fonctions lisp que l'on peut compiler
  		;; chaque fonction retourne les instructions assembleurs permettant de faire ces operations
