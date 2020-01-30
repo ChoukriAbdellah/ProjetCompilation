@@ -10,16 +10,16 @@
 
 (defun type-op(expr) (cond
                         ( (equal expr '+)
-                                (list (format nil "(ADD R1 R0)"))
+                                (list (format nil "(ADD R1 R0)~C" #\linefeed))
                         )
                         ( (equal expr '*)
-                                (list "MULT R1 R0")
+                                (list (format nil "(MULT R1 R0)~C" #\linefeed ))
                         )
                         ( (equal expr '-)
-                                (list "SUB R1 R0")
+                                (list (format nil "(SUB R1 R0)~C" #\linefeed))
                         )
                         ( (equal expr '/)
-                                (list "DIV R1 R0")
+                                (list (format nil "(DIV R1 R0)~C" #\linefeed ))
                         )
 
                 )
@@ -290,7 +290,58 @@ is replaced with replacement."
         )
 )
 
+(defun appel-de-fonction (call env)
+	;; variable local comp stockera les instructions apres compilation
+	;; variable local nbParam stockera le nombre de parametre de la fonction
+	(let (retour nbParam)
+		(setf nbParam 0)
+		;; pour tous les arguments
+                
+		(loop for arg in (reverse (cdr call)) do 
+			;; compiler les arguments et les empiler dans la pile
 
+			(setf retour (append retour (list (compile-line  arg env))  
+			(list (format nil "(PUSH R0) ~%" ) ) ) ) 
+			(setf nbParam (+ nbParam 1)) ; erreur!!
+		)
+		
+                        (setf retour (append retour
+                                (list (format nil "(PUSH ~a) ~%" nbParam))
+                                (list (format nil "(MOVE FP R1) ~%" ))
+                                (list (format nil "(MOVE SP FP) ~%" ))
+                                (list (format nil "(MOVE SP R2) ~%" ))
+                                (list (format nil "(MOVE ~a R3) ~%" (+ nbParam 1)))
+                                (list (format nil "(ADD R3 R2) ~%" ))
+                                (list (format nil "(PUSH R2) ~%" ))
+                                (list (format nil "(PUSH R1) ~%" ))
+                                (list (format nil "(PUSH RA) ~%" ))
+                                (list (format nil "(JSR ~a) ~%" (car call)))
+
+                                (list (format nil "(POP R1) ~%" ))
+                                (list (format nil "(MOVE R1 RA) ~%" ))
+
+                                (list (format nil "(POP R1) ~%" ))
+                                (list (format nil "(MOVE R1 FP) ~%" ))
+
+                                (list (format nil "(POP R1) ~%" ))
+                                (list (format nil "(MOVE R1 SP) ~%" ))
+                        ) )
+			(let (i)
+	                        (setf i (lastValueEnv env))
+                                (setf retour (append retour (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
+		                        (loop for argument in env do
+                                                (setf retour (append retour (list (format nil "(INCR R3) ~C" #\linefeed)) 
+                                                (list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
+                                                )
+                                
+                                                (setf i (+ i 1))
+		                        )
+                (setf retour (concatString retour))
+	                )
+(return-from appel-de-fonction retour)
+	)
+
+)
   
  
 
@@ -333,3 +384,31 @@ is replaced with replacement."
  		)
  		
  	)
+
+; ecrit str dans un fichier a l'adresse path
+(defun writeFile (path str)
+	;; file out : ouvre le fichier dans path, cree si n'existe pas, ecrase si existe, l'ouvre en ecriture
+	(let ((fout (open path :if-does-not-exist :create :if-exists :supersede :direction :io)))
+		;; ecrit str dans file out et ferme file out
+		(format fout str)
+		(close fout)
+	)
+)
+
+; compiler un programme (cree un fichier ASM.txt contenant les instructions assembleurs du programme lisp compile)
+(defun lispProgToAsm (progr env)
+	;; variable local comp stockera les instructions apres compilation
+	;(writeFile "ASM.txt" ;ecrire dans le fichier asm la concatenation des compilation de
+        ; chaque ligaqaqne du programme
+        (let (codeFinal ) 
+                ;; pour chaque ligne du programme compiler cette ligne
+                (loop for line in progr do
+                                                
+                        (setf codeFinal (concatString (append (list codeFinal)  (list (lispLineToAsm line env)) ) )) 
+                )
+                                
+                (return-from lispProgToAsm codeFinal)       
+                
+        )
+		;
+)
