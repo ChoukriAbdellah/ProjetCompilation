@@ -14,7 +14,7 @@
                         )
                         ( (equal expr '*)
                                 (list (format nil "(MULT R1 R0)~C" #\linefeed ))
-                        )
+                    )
                         ( (equal expr '-)
                                 (list (format nil "(SUB R1 R0)~C" #\linefeed))
                         )
@@ -28,14 +28,6 @@
 
 
 
-        (defun writeFile (path str)
-	;; file out : ouvre le fichier dans path, cree si n'existe pas, ecrase si existe, l'ouvre en ecriture
-	(let ((fout (open path :if-does-not-exist :create :if-exists :supersede :direction :io)))
-		;; ecrit str dans file out et ferme file out
-		(format fout str)
-		(close fout)
-	)
-)
 
      
 (append (list (format nil "nano" #\linefeed) (list 1 2)))
@@ -48,9 +40,9 @@
         )
                 ( t
                 
-                   (concatString (append (expr-arith (second expr) env)
+                   (concatString (append (lispLineToAsm (second expr) env)
                 (list (format nil "(PUSH R0)~C" #\linefeed))
-                (expr-arith (third expr) env)
+                (lispLineToAsm (third expr) env)
                 (list  (format nil "(POP R1)~C" #\linefeed))
                 (type-op (car expr)) )  )                      
         
@@ -82,9 +74,9 @@
         
                 ( t
                 
-                (concatString (append (expr-arith (cadr expr) env)
+                (concatString (append (lispLineToAsm (cadr expr) env)
                 (list (format nil "(PUSH R0)~C" #\linefeed))
-                (expr-arith (caddr expr) env)
+                (lispLineToAsm (caddr expr) env)
                 (list  (format nil "(POP R1)~C" #\linefeed))
                                      
                 (list (format nil "(CMP R0 R1)~C" #\linefeed) )
@@ -109,7 +101,7 @@
         )
   )       
 
-(defun queue-liste (expr env)
+(defun queue-liste (expr &optional env  )
 	;; variable local comp stockera les instructions apres compilation
 		;; si la variable entrante de cdr est un atome, stocker l'instruction assembleur cdr
 		;; sinon retourner liste vide
@@ -120,7 +112,7 @@
 
 	)
 ; compiler les car de liste
-(defun tete-liste (expr env)
+(defun tete-liste (expr &optionalenv )
 	;; variable local comp stockera les instructions apres compilation
 	(if (atom (cadr expr))
                 (list (format nil "(CAR ~a)~C" (cadr expr) #\linefeed) )
@@ -131,7 +123,7 @@
 
 
 ;;Compile une line vide et la remplace par l'instruction assembleur NOP
-(defun compile-skip(line env)
+(defun compile-skip()
         (list (format nil "(NOP)~C"  #\linefeed) )
 
 )
@@ -231,20 +223,20 @@
 )
 ; remplacer les paramètres par leur registre
 (defun replace-params-reg (string_ env ) 
-	
-		(concatString (append 
-                
+	(let  ( comp) 
+		(setf comp string_)
 		;;Parcours de la liste des paires dans l'environnement
 		(loop for arg in env do 
-			 ;;Le motif qui correspond au nom de la variable
-			(list  (format nil " R~a " (cdr arg))) ;;Le motif qui correspond à R suivi du numéro stocké dans l'env.
-			(list  (replace-all (list string_) 
-                        (list  (format nil " ~a " (car arg)))
-                        (list  (format nil " R~a " (cdr arg))) ));;Appel de la fonction pour remplacer <nomVar> par R<numVar>
+			;(setf part ) ;;Le motif qui correspond au nom de la variable
+			;(setf replacement ) ;;Le motif qui correspond à R suivi du numéro stocké dans l'env.
+			(setf comp (replace-all comp
+                         (format nil " ~a " (car arg))
+                         (format nil " R~a " (cdr arg)) ));;Appel de la fonction pour remplacer <nomVar> par R<numVar>
 		)
 		(return-from replace-params-reg comp)
-	)
+        )
 )
+
 (defun replace-all (string part replacement &key (test #'char=))
 "Returns a new string in which all the occurences of the part 
 is replaced with replacement."
@@ -262,21 +254,7 @@ is replaced with replacement."
        )
     )
 )
-; remplacer les paramètres par leur registre
-(defun replace-params-reg (string_ env ) 
-	(let  ( comp) 
-		(setf comp string_)
-		;;Parcours de la liste des paires dans l'environnement
-		(loop for arg in env do 
-			;(setf part ) ;;Le motif qui correspond au nom de la variable
-			;(setf replacement ) ;;Le motif qui correspond à R suivi du numéro stocké dans l'env.
-			(setf comp (replace-all comp
-                         (format nil " ~a " (car arg))
-                         (format nil " R~a " (cdr arg)) ));;Appel de la fonction pour remplacer <nomVar> par R<numVar>
-		)
-		(return-from replace-params-reg comp)
-        )
-)
+
 ; compiler une ligne
 
 (defun compile-setf (expr env)
@@ -300,8 +278,8 @@ is replaced with replacement."
 		(loop for arg in (reverse (cdr call)) do 
 			;; compiler les arguments et les empiler dans la pile
 
-			(setf retour (append retour (list (compile-line  arg env))  
-			(list (format nil "(PUSH R0) ~%" ) ) ) ) 
+			(setf retour (append retour (list (lispLineToAsm  arg env))  
+			(list (format nil " APPEL DE FONCTION (PUSH R0) ~%" ) ) ) ) 
 			(setf nbParam (+ nbParam 1)) ; erreur!!
 		)
 		
@@ -331,7 +309,7 @@ is replaced with replacement."
                                 (setf retour (append retour (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
 		                        (loop for argument in env do
                                                 (setf retour (append retour (list (format nil "(INCR R3) ~C" #\linefeed)) 
-                                                (list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
+                                                                            (list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
                                                 )
                                 
                                                 (setf i (+ i 1))
@@ -343,7 +321,28 @@ is replaced with replacement."
 
 )
   
- 
+ (defun compile-fonction (fct env)
+	(let (return) 
+		(setf return (list (format nil "(LABEL ~a)~C" (car (cdr fct)) #\linefeed)))
+		(let (i)
+			(setf i (lastValueEnv env))
+			(setf return (append return (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
+			(loop for argument in (caddr fct) do
+				(setf return (append return (list (format nil "(INCR R3) ~C" #\linefeed)) 
+				(list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
+				)
+				(setf env (consPair env argument i))
+				(setf i (+ i 1))
+			)
+		)
+
+		(setf return (concatString (append return (list (replace-params-reg (compile-all (cdddr fct) env ) env))
+		(list (format nil "(RTN) ~C" #\linefeed)))))
+
+		(return-from compile-fonction return)
+	)
+)
+
 
 ;; fonction facile mais a modidier 
 ; donner la valeur de la dernière variable d'environnement
@@ -369,10 +368,10 @@ is replaced with replacement."
  		;; switch sur les fonctions lisp que l'on peut compiler
  		;; chaque fonction retourne les instructions assembleurs permettant de faire ces operations
  		(cond 
- 			((null line)(compile-skip line env)) ;; skip si la ligne est vide
+ 			((null line)(compile-skip )) ;; skip si la ligne est vide
  			((atom line) (expr-arith line env)) ;; compile expression si la ligne ne contient qu'un atome
  			((equal (car line) 'if) (expr-if line env)) ;; compile if
- 			;((equal (car line) 'defun)  (compile-fct line env)) ;; compile fonction (si defun)
+ 			((equal (car line) 'defun)  (compile-fonction line env)) ;; compile fonction (si defun)
  			((equal (car line) 'while)  (expr-while line env)) ;; compile while 
  			((equal (car line) 'setf)  (compile-setf line env)) ;; compile setf
  			((equal (car line) 'car) (tete-liste line env)) ;; compile car
@@ -395,6 +394,7 @@ is replaced with replacement."
 	)
 )
 
+
 ; compiler un programme (cree un fichier ASM.txt contenant les instructions assembleurs du programme lisp compile)
 (defun lispProgToAsm (progr env)
 	;; variable local comp stockera les instructions apres compilation
@@ -406,9 +406,14 @@ is replaced with replacement."
                                                 
                         (setf codeFinal (concatString (append (list codeFinal)  (list (lispLineToAsm line env)) ) )) 
                 )
-                                
+                (writeFile "ASM.txt" codeFinal)               
                 (return-from lispProgToAsm codeFinal)       
                 
         )
 		;
 )
+
+
+
+
+
