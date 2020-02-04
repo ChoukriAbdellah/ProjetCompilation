@@ -36,15 +36,15 @@
         
         (cond
         ((not expr) (list  '()) )
-        ( (atom expr) (list (format nil "(MOVE ~a R0)~C" expr  #\linefeed   )) 
+        ( (atom expr)  (list (format nil " expr fonction (MOVE ~a R0)~C" expr  #\linefeed   )) 
         )
                 ( t
                 
-                   (concatString (append (lispLineToAsm (second expr) env)
+                    (append (lispLineToAsm (second expr) env)
                 (list (format nil "(PUSH R0)~C" #\linefeed))
                 (lispLineToAsm (third expr) env)
                 (list  (format nil "(POP R1)~C" #\linefeed))
-                (type-op (car expr)) )  )                      
+                (type-op (car expr)) )                        
         
 
         
@@ -57,14 +57,14 @@
         (list (format nil "(JGE 2)~C" #\linefeed) )
 	)
 	( (equal op '<=)
-	(list (format   nil "(JLE 2)~C" #\linefeed) )
+	(list (format   nil "(JPE 2)~C" #\linefeed) )
 	)
 	( (equal op '=) 
         (list (format nil "(JEQ 2)~C" #\linefeed) )	) 
+	( (equal op '<) 
+        (list (format nil "(JPP 2)~C" #\linefeed) )	) 
 	( (equal op '>) 
-        (list (format nil "(JGT 2)~C" #\linefeed) )	) 
-	( (equal op '>) 
-        (list (format nil "(JLT 2)~C" #\linefeed) )        )
+        (list (format nil "(JPG 2)~C" #\linefeed) )        )
 	)
 )
   (defun expr-comparateur (expr env)
@@ -75,7 +75,7 @@
                 ( t
                 
                 (concatString (append (lispLineToAsm (cadr expr) env)
-                (list (format nil "(PUSH R0)~C" #\linefeed))
+                (list (format nil " comparateur fonction(PUSH R0)~C" #\linefeed))
                 (lispLineToAsm (caddr expr) env)
                 (list  (format nil "(POP R1)~C" #\linefeed))
                                      
@@ -164,18 +164,18 @@
 (defun expr-if(instruction env)
  (concatString (append 
                 (list (expr-comparateur (cadr instruction) env)) 
-                (list (format nil "(CMP 0 R0)~C" #\linefeed))
+                (list (format nil "if fonction(CMP 0 R0)~C" #\linefeed))
                 
                 
                 (list  (format nil "(JEQ ~a)~C" (- (count #\newline (write-to-string (caddr instruction)))
                                  (count-substrings "LABEL" (write-to-string (caddr instruction) ))
                                     -1)  #\linefeed)) ; -(-1) pour faire un saut de ligne
-                (expr-arith (caddr instruction) env);cas true               
+                (lispLineToAsm (caddr instruction) env);cas true               
                 
                 (list  (format nil "(JMP ~a)~C" (- (count #\newline (write-to-string (cadddr instruction)))
                                    (count-substrings "LABEL" (write-to-string (cadddr instruction)))
                                     )  #\linefeed))
-                (expr-arith (cadddr instruction) env) ;cas false
+                (lispLineToAsm (cadddr instruction) env) ;cas false
                 
                
         
@@ -186,11 +186,11 @@
 (defun expr-while(instruction env)
         (concatString (append 
                 (list (expr-comparateur (cadr instruction) env)) 
-                (list (format nil "(CMP 0 R0)~C" #\linefeed))
+                (list (format nil "while fonction(CMP 0 R0)~C" #\linefeed))
                 (list  (format nil "(JEQ ~a)~C" (- (count #\newline (write-to-string (caddr instruction)))
                                         (count-substrings "LABEL" (write-to-string (caddr instruction) ))
                                         -1)  #\linefeed))
-                (expr-arith (caddr instruction) env);cas true 
+                (lispLineToAsm (caddr instruction) env);cas true 
 
                 ;Sortie de la boucle si la condition est fasse 
                 (list  (format nil "(JMP ~a)~C" ( + (- (count #\newline (write-to-string (caddr instruction)))
@@ -262,7 +262,7 @@ is replaced with replacement."
 		;; compiler la valeur a stocker dans la variable
                         ( expr-arith  (third expr) env)
                         ;; stocker la variable dans l'environement et lui affecter un registre
-                        (list (replace-params-reg (format nil "(MOVE R0 ~a ) ~%"   (second expr)) env))
+                        (list (replace-params-reg (format nil "setf fonction(MOVE R0 ~a ) ~%"   (second expr)) env))
                 
 	              )
         )
@@ -279,7 +279,7 @@ is replaced with replacement."
 			;; compiler les arguments et les empiler dans la pile
 
 			(setf retour (append retour (list (lispLineToAsm  arg env))  
-			(list (format nil " APPEL DE FONCTION (PUSH R0) ~%" ) ) ) ) 
+			(list (format nil "appel de fonction (PUSH R0) ~%" ) ) ) ) 
 			(setf nbParam (+ nbParam 1)) ; erreur!!
 		)
 		
@@ -314,7 +314,7 @@ is replaced with replacement."
                                 
                                                 (setf i (+ i 1))
 		                        )
-                (setf retour (concatString retour))
+                ;(setf retour  retour)
 	                )
 (return-from appel-de-fonction retour)
 	)
@@ -323,7 +323,7 @@ is replaced with replacement."
   
  (defun compile-fonction (fct env)
 	(let (return) 
-		(setf return (list (format nil "(LABEL ~a)~C" (car (cdr fct)) #\linefeed)))
+		(setf return (list (format nil "compile fonciton (LABEL ~a)~C" (car (cdr fct)) #\linefeed)))
 		(let (i)
 			(setf i (lastValueEnv env))
 			(setf return (append return (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
@@ -417,3 +417,4 @@ is replaced with replacement."
 
 
 
+ '(defun fibonacci (n) (if (= n 0) 0 (if (= n 1) 1(+ (fibonacci (1- n)) (fibonacci (- n 2)))))) 
