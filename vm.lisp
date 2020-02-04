@@ -1,430 +1,355 @@
-;; explication assembleur (+ 1 2) comp = (MOVE 1 R0) concat (push R0) concat (MOVE 2 R0) concat (POP R1) concat (ADD R1 R0)
-(defun concatString (list)
-  "A non-recursive function that concatenates a list of strings."
-  (if (listp list)
-      (let ((result ""))
-        (dolist (item list)
-          (if (stringp item)
-              (setq result (concatenate 'string result item))))
-        result)))
+;explication instruction.lisp
+ ;la vm :
+ ;la vm est une sorte de class avec des attributs 
+ ;-name   -> nom de la vm
+ ;-       -> taille de la mémoire (représenté sous forme d'un tableau) comme expliqué dans le cours 
+;          La mémoire est un ensemble fini de N cellules (ou mots)
 
-(defun type-op(expr) (cond
-                        ( (equal expr '+)
-                                (list (format nil "(ADD R1 R0)~C" #\linefeed))
-                        )
-                        ( (equal expr '*)
-                                (list (format nil "(MULT R1 R0)~C" #\linefeed ))
-                    )
-                        ( (equal expr '-)
-                                (list (format nil "(SUB R1 R0)~C" #\linefeed))
-                        )
-                        ( (equal expr '/)
-                                (list (format nil "(DIV R1 R0)~C" #\linefeed ))
-                        )
+;make vm consiste donc a:
+ ;   -associer à chaque registre de base 
+ ;   son numéro d'instruction qui correspond à sa valeur 
 
-                )
-   
-    )
+ ;   -initialiser les valeurs des flags à 0
+    
+ ;   - et son état  1 = Off et 0 = on 
 
+(require "compilation.lisp")
 
-
-
-     
-(append (list (format nil "nano" #\linefeed) (list 1 2)))
-
- (defun expr-arith (expr env)
-       
-        (cond
-        
-        ( (atom expr)  (concatString (list (format nil "(MOVE ~a R0)~C" expr  #\linefeed   )) 
-        ))
-                ( t
-                
-                  (concatString  (append 
-                   (list (lispLineToAsm (second expr) env) ) 
-                   (list (format nil "(PUSH R0)~C" #\linefeed))
-                   (list (lispLineToAsm (third expr) env) ) 
-                  (list  (format nil "(POP R1)~C" #\linefeed))
-                  (type-op (car expr)) 
-                                 )
-                )  
-                )                      
-        
-
-        
-        
-        )
+; definit un symbole dans une variable;
+(defun set-Symb (vm nom val)
+;; voir ça  comme une class (get class attribut) valeur a affecter 
+	(setf (get vm nom) val) 
 )
-(defun type-comp(op)
-(cond
-	( (equal op'>=)
-        (list (format nil "(JGE 2)~C" #\linefeed) )
-	)
-	( (equal op '<=)
-	(list (format   nil "(JPE 2)~C" #\linefeed) )
-	)
-	( (equal op '=) 
-        (list (format nil "(JEQ 2)~C" #\linefeed) )	) 
-	( (equal op '<) 
-        (list (format nil "(JPP 2)~C" #\linefeed) )	) 
-	( (equal op '>) 
-        (list (format nil "(JPG 2)~C" #\linefeed) )        )
-	)
-)
-  (defun expr-comparateur (expr env)
-        
-        (cond
-        ((not expr) (list  '()) )
-        
-                ( t
-                
-                (concatString (append (list (lispLineToAsm (cadr expr) env) )
-                (list (format nil "(PUSH R0)~C" #\linefeed))
-                (list (lispLineToAsm (caddr expr) env) )
-                (list  (format nil "(POP R1)~C" #\linefeed))
-                                     
-                (list (format nil "(CMP R0 R1)~C" #\linefeed) )
-                ; traitement du type de l operateur
-                (type-comp (car expr))
-                
-                ; si le teste est vrai (on ferra les affectations lors de l execution)
-                ; car pour le moment on connais les ce que contion le teste
-                ;
-                ;Si test faux : exemple( du cours R0 = 2 R1 =4 ) 
-                ;CMP R0 R1 => 100 (FLT est mis a vrai 1 et les autre a faux 0
-                ; car 2 plus petit que 4)
-                (list (format nil "(MOVE 0 R0)~C" #\linefeed) )
-                (list (format nil "(JMP 1) ~C" #\linefeed) )
-
-		;;Si vrai on récupere et réalise l insctruction cas vrai
-                (list (format nil "(MOVE 1 R0)~C" #\linefeed) )
-        
-        )
-        )
-        )
-        )
-  )       
-
-(defun queue-liste (expr &optional env  )
-	;; variable local comp stockera les instructions apres compilation
-		;; si la variable entrante de cdr est un atome, stocker l'instruction assembleur cdr
-		;; sinon retourner liste vide
-		(if (atom (cadr expr))
-                (list (format nil "(CDR ~a)~C" (cadr expr) #\linefeed) )
-		(list '())	
-		)
-
-	)
-; compiler les car de liste
-(defun tete-liste (expr &optionalenv )
-	;; variable local comp stockera les instructions apres compilation
-	(if (atom (cadr expr))
-                (list (format nil "(CAR ~a)~C" (cadr expr) #\linefeed) )
-		(list '())	
-		)
-
-	)
-
-
-;;Compile une line vide et la remplace par l'instruction assembleur NOP
-(defun compile-skip()
-        (list (format nil "(NOP)~C"  #\linefeed) )
+; initialisation memoire
+(defun init-mem (nom &optional(taille 1000)) (set-Symb nom 'mem (make-array taille)) )
+; initialisation des flags
+(defun set-flag-init (vm)
+	(set-Symb vm 'DEQ 0)
+	(set-Symb vm 'DPG 0)
+	(set-Symb vm 'DPP 0)
 
 )
 
- (defun operateur? (op)
- 
-                (cond 
-                    ((equal op '+) T)
-                    ((equal op '-)  T)
-                    ((equal op '*) T)
-                    ((equal op '/)  T)
-                    ((numberp op)  T )
-                    ;else
-                    (t nil)
+; creation de la machine virtuelle (taille de base 1000)
+(defun make-vm (nom &optional (taille 1000))
+	(init-mem nom taille) ; memoire
 
-                        )
-                                        
-                
-        )
-
-
-
-
-;; Predicates
-; foncton trouvé sur stackoverflow qui permet de compter le nombre d occ de subString dans string
-;https://stackoverflow.com/questions/35061185/trouble-counting-subseq-of-a-string-common-lisp
-(defun count-substrings (substring string)
-  (loop
-    with sub-length = (length substring)
-    for i from 0 to (- (length string) sub-length)
-    when (string= string substring
-                  :start1 i :end1 (+ i sub-length))
-    count it))
-
- 
-                        
-; compiler les if
-(defun expr-if(instruction env)
- (concatString (append 
-                (list (expr-comparateur (cadr instruction) env)) 
-                (list (format nil "(CMP 0 R0)~C" #\linefeed))
-                
-                
-                 ; -(-1) pour faire un saut de ligne
-                            
-                (list  (format nil "(JEQ ~a)~C" 
-                        (- (count #\newline  (lispLineToAsm (caddr instruction) env))
-                           (count-substrings "LABEL"  (lispLineToAsm (caddr instruction) env) )
-                                    -1)  #\linefeed))
-                (list (lispLineToAsm (caddr instruction) env) );cas true   
-                (list  (format nil "(JMP ~a)~C" (- (count #\newline  (lisplinetoAsm (cadddr instruction) env) )
-                                   (count-substrings "LABEL"  (lispLineToAsm (cadddr instruction) env ))
-                                    )  #\linefeed)) 
-                
-                (list (lispLineToAsm (cadddr instruction) env) );cas false
-                
-               
-        
-        ) 
-
-        )
-)
-(defun expr-while(instruction env)
-        (concatString (append 
-                (list (expr-comparateur (cadr instruction) env)) 
-                (list (format nil "(CMP 0 R0)~C" #\linefeed))
-                (list  (format nil "(JEQ ~a)~C" (- (count #\newline (write-to-string (caddr instruction)))
-                                        (count-substrings "LABEL" (write-to-string (caddr instruction) ))
-                                        -1)  #\linefeed))
-                (list (lispLineToAsm (caddr instruction) env) );cas true 
-
-                ;Sortie de la boucle si la condition est fasse 
-                (list  (format nil "(JMP ~a)~C" ( + (- (count #\newline (write-to-string (caddr instruction)))
-                                                        (count-substrings "LABEL" (write-to-string (caddr instruction) ))
-                                                        -1) ;; nmobre de saut = nombre d instruction qu'on fait 
-                                                        ;; si la condition est vraie + le nombre d instruction
-                                                        ;; qu'on réalise dans  le if => jump a(ux) l'insctruction(s)
-                                                        ;; false  
-                                                        (- (count #\newline (write-to-string (cadr instruction)))
-                                                        (count-substrings "LABEL" (write-to-string (cadr instruction) ))
-                                                        ))
-
-                                                        #\linefeed))
-                        )
-        )
-)
-
-
-(defun comparateur?(op)
-		(cond 
-			((equal op '<)  T)
-			((equal op '>)  T)
-			((equal op '=)  T)
-			((equal op '<=) T)
-			((equal op '>=)  T)
-                        (t nil)
-		)
-		
+	;; Registre de base
+	(set-Symb nom 'labels (make-hash-table)) ; label (cle = nom, value = numero instruction)
+	(set-Symb nom 'SP taille) ; stack pointer 	sommet de la pile
+	(set-Symb nom 'MP (- taille (* taille 0.10))) ; max pile
+	(set-Symb nom 'FP taille) ; frame pointer   qui permet de structurer( et donc faciliter )la pile à l'aide des blocs
+	(set-Symb nom 'RA 0) ; return adress
+	(set-Symb nom 'PC 0) ; program counter
 	
+	;; Flag
+	(set-flag-init nom)
+
+	;; Register
+	; (set-Symb nom 'R0 0)
+	; (set-Symb nom 'R1 0)
+	; (set-Symb nom 'R2 0)
+	; (set-Symb nom 'R3 0)
+
+	;; VM State (0 on, 1 off)
+	(set-Symb nom 'state 0)
 )
-; remplacer les paramètres par leur registre
-(defun replace-params-reg (string_ env ) 
-	(let  ( comp) 
-		(setf comp string_)
-		;;Parcours de la liste des paires dans l'environnement
-		(loop for arg in env do 
-			;(setf part ) ;;Le motif qui correspond au nom de la variable
-			;(setf replacement ) ;;Le motif qui correspond à R suivi du numéro stocké dans l'env.
-			(setf comp (replace-all comp
-                         (format nil " ~a " (car arg))
-                         (format nil " R~a " (cdr arg)) ));;Appel de la fonction pour remplacer <nomVar> par R<numVar>
-		)
-		(return-from replace-params-reg comp)
-        )
-)
-
-(defun replace-all (string part replacement &key (test #'char=))
-"Returns a new string in which all the occurences of the part 
-is replaced with replacement."
-    (with-output-to-string (out)
-      (loop with part-length = (length part)
-            for old-pos = 0 then (+ pos part-length)
-            for pos = (search part string
-                              :start2 old-pos
-                              :test test)
-            do (write-string string out
-                             :start old-pos
-                             :end (or pos (length string)))
-            when pos do (write-string replacement out)
-            while pos
-       )
-    )
-)
-
-; compiler une ligne
-
-(defun compile-setf (expr env)
-	(concatString (append 
-		;; compiler la valeur a stocker dans la variable
-                       (list ( expr-arith  (third expr) env) )
-                        ;; stocker la variable dans l'environement et lui affecter un registre
-                        (list (replace-params-reg (format nil "setf fonction(MOVE R0 ~a ) ~%"   (second expr)) env))
-                
-	              )
-        )
-)
-
-(defun appel-de-fonction (call env)
-	;; variable local comp stockera les instructions apres compilation
-	;; variable local nbParam stockera le nombre de parametre de la fonction
-	(let (retour nbParam)
-		(setf nbParam 0)
-		;; pour tous les arguments
-                
-		(loop for arg in (reverse (cdr call)) do 
-			;; compiler les arguments et les empiler dans la pile
-
-			(setf retour (append retour (list (lispLineToAsm  arg env))  
-			(list (format nil "(PUSH R0) ~%" ) ) ) ) 
-			(setf nbParam (+ nbParam 1)) ; erreur!!
-		)
-		
-                        (setf retour (append retour
-                                (list (format nil "(PUSH ~a) ~%" nbParam))
-                                (list (format nil "(MOVE FP R1) ~%" ))
-                                (list (format nil "(MOVE SP FP) ~%" ))
-                                (list (format nil "(MOVE SP R2) ~%" ))
-                                (list (format nil "(MOVE ~a R3) ~%" (+ nbParam 1)))
-                                (list (format nil "(ADD R3 R2) ~%" ))
-                                (list (format nil "(PUSH R2) ~%" ))
-                                (list (format nil "(PUSH R1) ~%" ))
-                                (list (format nil "(PUSH RA) ~%" ))
-                                (list (format nil "(JSR ~a) ~%" (car call)))
-
-                                (list (format nil "(POP R1) ~%" ))
-                                (list (format nil "(MOVE R1 RA) ~%" ))
-
-                                (list (format nil "(POP R1) ~%" ))
-                                (list (format nil "(MOVE R1 FP) ~%" ))
-
-                                (list (format nil "(POP R1) ~%" ))
-                                (list (format nil "(MOVE R1 SP) ~%" ))
-                        ) )
-			(let (i)
-	                        (setf i (lastValueEnv env))
-                                (setf retour (append retour (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
-		                        (loop for argument in env do
-                                                (setf retour (append retour (list (format nil "(INCR R3) ~C" #\linefeed)) 
-                                                                            (list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
-                                                )
-                                
-                                                (setf i (+ i 1))
-		                        )
-                (setf retour  (concatString retour) )
-	                )
-(return-from appel-de-fonction retour)
+; en fait ici il prend pas une liste d'instruction mais la liste
+; contenant tout les instruction genre ( (RTN truc ) (....))
+(defun function-length (instr &optional (size 0) )
+	(if (equal (caar instr) 'RTN) ; donc ici il regarde la tete de l'instruction
+								  ; ( RTN .. )
+		(+ size 1)
+		(function-length (cdr instr) (+ size 1))
 	)
-
 )
-  
- (defun compile-fonction (fct env)
-	(let (return) 
-		(setf return (list (format nil "(LABEL ~a)~C" (car (cdr fct)) #\linefeed)))
-		(let (i)
-			(setf i (lastValueEnv env))
-			(setf return (append return (list (format nil "(MOVE FP R3) ~C" #\linefeed))))
-			(loop for argument in (caddr fct) do
-				(setf return (append return (list (format nil "(INCR R3) ~C" #\linefeed)) 
-				(list (format nil "(LOAD R3 R~a) ~C" i #\linefeed)))
+; donc en fin de compte cette fonction permet de calculer le nombre 
+; d'instruction 
+
+
+; charge une liste d'instruction dans la memoire
+(defun loader (vm instr &optional(ptr (get vm 'PC)))
+	(cond
+		((not (equal (car instr) NIL))
+			(cond
+				(
+					;; si instruction est label -> stocke le numero de l'instruction dans la hash table labels
+					(equal(caar instr) 'LABEL)
+						(setf (gethash (cadar instr) (get vm 'labels)) ptr)
+						(set-Symb vm 'PC (+ (get vm 'PC) (function-length (cdr instr))))
+						(loader vm (cdr instr) ptr)
 				)
-				(setf env (consPair env argument i))
-				(setf i (+ i 1))
+					;; sinon charger instruction a la suite dans la memoire
+				(
+					(setf (aref (get vm 'mem) ptr) (car instr))
+					(loader vm (cdr instr) (+ ptr 1))
+				)
 			)
 		)
-
-		(setf return (concatString (append return (list (replace-params-reg (compile-all (cdddr fct) env ) env))
-		(list (format nil "(RTN) ~C" #\linefeed)))))
-
-		(return-from compile-fonction return)
 	)
 )
 
+; compiler et charger le code assembleur dans la memoire
+(defun charger-fichier (vm path)
+	;; compiler
+	(progLispToAsm progr '())
+	;; charger le code en memoire
+	(loader vm (readFile path))
+)
 
-;; fonction facile mais a modidier 
-; donner la valeur de la dernière variable d'environnement
-(defun lastValueEnv(env)
-	(if (null env)
-		4
-		(cdr (first (last env)))
+; On prend la liste des intructions et pour chaque instruction on la charge
+; on distingue 2 cas d'instruction :
+; si la tete de l'intruction est un label sa veut dire qu'on défini une f(x)
+; ex label racineCarre 
+;ou une procedure  dans ce cas on stock le numéro de l'instruction dans la 
+; hashTable conçu pour stoker les labels qu'on a crée dans make-vm 
+; Le compteur ordinale,  va donc pointer sur l'intruction suivante cad l'intruction
+; qui suit la définition de fonction
+
+;Sinon c'est une simple instruction alors on la charge
+; donne un nom ( un symbol ) et une valeur 
+;l'instruction suivante sera à PC +1 
+;=> Cette fonction prend chaque instruction de la liste contenat toute les
+; instructions et charge dans la vm
+
+; defini flag equal
+(defun set-flag-DEQ (vm)
+	(set-flag-init vm)
+	(set-Symb vm 'DEQ 1)
+)
+
+; defini flag plus grand
+(defun set-flag-DPG (vm)
+	(set-flag-init vm)
+	(set-Symb vm 'DPG 1)
+)
+
+;defini flag plus petit
+(defun set-flag-DPP (vm)
+	(set-flag-init vm)
+	(set-Symb vm 'DPP 1)
+)
+
+; execute le code stocker dans la memoire de vm
+(defun exec-vm (vm)
+	(loop while (not (or (equal (aref (get vm 'mem) (get vm 'PC)) NIL) (equal (get vm 'state) 1)))
+		do
+				#| (write (format nil " trace : ~a ~%" (aref (get vm 'mem) (get vm 'PC)))) |#
+		(cond 
+			;; switch sur les instructions charger (appelle les fonctions lisp correspondantes dans instruction.lisp)
+			;; si  		premier element 		equal			*	lancer 	*		vm 				argument 1										argument 2
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'MOVE)	(vm-move	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'LOAD)	(vm-load	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'STORE)	(vm-store	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'INCR)	(vm-incr	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'DECR)	(vm-decr	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'ADD)	(vm-add		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'SUB)	(vm-sub		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'MULT)	(vm-mult	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'DIV)	(vm-div		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'PUSH)	(vm-push	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'POP)	(vm-pop		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JPG)	(vm-jpg		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JEQ)	(vm-jeq		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JPP)	(vm-jpp		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JGE)	(vm-jge		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JPE)	(vm-jpe		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JMP)	(vm-jmp		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'JSR)	(vm-jsr		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'RTN)	(vm-rtn		vm 																																	))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'CMP)	(vm-cmp		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'HALT)	(vm-halt	vm																																	))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'NOP)	(vm-nop		vm																																	))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'CAR)	(vm-car		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'CDR)	(vm-cdr		vm	(nth 1 (aref (get vm 'mem) (get vm 'PC)))																						))
+			( (equal (nth 0 (aref (get vm 'mem) (get vm 'PC))) 'CONS)	(vm-cons	vm	(nth 1 (aref (get vm 'mem) (get vm 'PC))) (nth 2 (aref (get vm 'mem) (get vm 'PC)))												))
+		)
+		;; incrementer pc (passer a l'instruction suivante)
+		(incf (get vm 'PC))
+	)
+	"Fin de VM"
+)
+
+; MOVE P1 P2
+(defun vm-move (vm P1 P2)
+	(if (symbolp P1)
+		(setf (get vm P2) (get vm P1))
+		(setf (get vm P2) P1)
 	)
 )
 
-; ajoutee une paire pointée à une liste de paires pointées
-(defun consPair (env arg index)
-	;;Si l'environnement est null alors
-	(if (null env)
-		(setf env (list (cons arg index))) ;;Ajoute à la fin une liste de une paire pointée
-		(setf env (cons (car env) (consPair (cdr env) arg index) ))  ;;Sinon concatene avec la suite
+; LOAD adr P
+(defun vm-load (vm adr P)
+	(if (symbolp adr)
+		(setf (get vm P) (aref (get vm 'mem) (get vm adr)))
+		(setf (get vm P) (aref (get vm 'mem) adr))
+
 	)
 )
 
-
-(defun lispLineToAsm (line env)
-	
- 		;; switch sur les fonctions lisp que l'on peut compiler
- 		;; chaque fonction retourne les instructions assembleurs permettant de faire ces operations
- 		(cond 
- 			((null line)(compile-skip )) ;; skip si la ligne est vide
- 			((atom line) (expr-arith line env)) ;; compile expression si la ligne ne contient qu'un atome
- 			((equal (car line) 'if) (expr-if line env)) ;; compile if
- 			((equal (car line) 'defun)  (compile-fonction line env)) ;; compile fonction (si defun)
- 			((equal (car line) 'while)  (expr-while line env)) ;; compile while 
- 			((equal (car line) 'setf)  (compile-setf line env)) ;; compile setf
- 			((equal (car line) 'car) (tete-liste line env)) ;; compile car
- 			((equal (car line) 'cdr) (queue-liste line env)) ;; compile cdr
- 			((operateur? (car line)) (expr-arith line env)) ;; compile expression si la ligne effectue une operation arithmetique
- 			((comparateur?(car line))(expr-comparateur line env)) ;; compile comp si la ligne effectue une comparaison
- 			((atom (car line)) (appel-de-fonction line env)) ;; compile appel de fonction si le premier element est nom (donc un atome)
-
- 		)
- 		
- 	)
-
-; ecrit str dans un fichier a l'adresse path
-(defun writeFile (path str)
-	;; file out : ouvre le fichier dans path, cree si n'existe pas, ecrase si existe, l'ouvre en ecriture
-	(let ((fout (open path :if-does-not-exist :create :if-exists :supersede :direction :io)))
-		;; ecrit str dans file out et ferme file out
-		(format fout str)
-		(close fout)
+; STORE P adr
+(defun vm-store (vm P adr)
+	(if (symbolp P)
+		(setf (aref (get vm 'mem) adr) (get vm P))
+		(setf (aref (get vm 'mem) adr) P)
 	)
 )
 
+; INCR P
+(defun vm-incr (vm P)
+	(incf (get vm P))
+)
 
-; compiler un programme (cree un fichier ASM.txt contenant les instructions assembleurs du programme lisp compile)
-(defun lispProgToAsm (progr env)
-	;; variable local comp stockera les instructions apres compilation
-	;(writeFile "ASM.txt" ;ecrire dans le fichier asm la concatenation des compilation de
-        ; chaque ligaqaqne du programme
-        (let (codeFinal ) 
-                ;; pour chaque ligne du programme compiler cette ligne
-                (loop for line in progr do
-               
-                
-                                              
-                        (setf codeFinal (concatString (append (list codeFinal)  (list (lispLineToAsm line env)) ) )) 
-                )
-                (writeFile "ASM.txt" codeFinal)               
-                (return-from lispProgToAsm codeFinal)       
-                
+; DECR P
+(defun vm-decr (vm P)
+	(decf (get vm P))
+)
+
+; ADD P1 P2
+(defun vm-add (vm P1 P2)
+	(setf (get vm P2) (+ (get vm P1) (get vm P2)))
+)
+
+; SUB P1 P2
+(defun vm-sub (vm P1 P2)
+	(setf (get vm P2) (- (get vm P1) (get vm P2)))
+)
+
+; MULT P1 P2
+(defun vm-mult (vm P1 P2)
+	(setf (get vm P2) (* (get vm P1) (get vm P2)))
+)
+
+; DIV P1 P2
+(defun vm-div (vm P1 P2)
+	(if (not (equal (get vm P1) 0))
+		(setf (get vm P2) (/ (get vm P1) (get vm P2)))
+	)
+)
+
+; PUSH P
+(defun vm-push (vm P)
+    (vm-decr vm 'SP)
+    (cond
+        (
+            (< (get vm 'SP) (get vm 'MP))
+                (setf (get vm 'state) 1)
+                (write "ERREUR : la pile a deborde")
         )
-		;
+        (
+            (vm-store vm P (get vm 'SP))
+        )
+    )
+)
+
+; POP P
+(defun vm-pop (vm P)
+	(vm-load vm (get vm 'SP) P)
+	(vm-incr vm 'SP)
+)
+
+; JPG etiq
+(defun vm-jpg (vm etiq)
+	(if (equal (get vm 'DPG) 1)
+		(vm-jmp vm etiq)
+	)
+)
+
+; JEQ etiq
+(defun vm-jeq (vm etiq)
+	(if (equal (get vm 'DEQ) 1)
+		(vm-jmp vm etiq)
+	)
+)
+
+; JPP etiq
+(defun vm-jpp (vm etiq)
+	(if (equal (get vm 'DPP) 1)
+		(vm-jmp vm etiq)
+	)
+)
+
+; JGE etiq
+(defun vm-jge (vm etiq)
+	(if (or (equal (get vm 'DPG) 1) (equal (get vm 'DEQ) 1))
+		(vm-jmp vm etiq)
+	)
+)
+
+; JPE etiq
+(defun vm-jpe (vm etiq)
+	(if (or (equal (get vm 'DPP) 1) (equal (get vm 'DEQ) 1))
+		(vm-jmp vm etiq)
+	)
+)
+
+; JMP etiq
+(defun vm-jmp (vm etiq)
+	(if (integerp etiq)
+		(setf (get vm 'PC) (+ (get vm 'PC) etiq))
+		(setf (get vm 'PC) (- (gethash etiq (get vm 'labels)) 1))
+	)
+)
+
+; JSR etiq
+(defun vm-jsr (vm etiq)
+	(setf (get vm 'RA) (get vm 'PC))
+	(vm-jmp vm etiq)
+)
+
+; RTN
+(defun vm-rtn (vm)
+	(setf (get vm 'PC) (get vm 'RA))
+)
+
+; CMP atom P2
+(defun vm-cmp-atom (vm P1 P2)
+	(cond
+		((equal P1 (get vm P2)) (set-flag-DEQ vm))
+		((< P1 (get vm P2)) (set-flag-DPP vm))
+		((> P1 (get vm P2)) (set-flag-DPG vm))
+	)
+) 
+
+; CMP P1 P2
+(defun vm-cmp-reg (vm P1 P2)
+	(cond
+		((equal (get vm P1) (get vm P2)) (set-flag-DEQ vm))
+		((< (get vm P1) (get vm P2)) (set-flag-DPP vm))
+		((> (get vm P1) (get vm P2)) (set-flag-DPG vm))
+	)
+)
+
+; CMP P1 P2
+(defun vm-cmp (vm P1 P2)
+	(if (symbolp P1)
+		(vm-cmp-reg vm P1 P2)
+		(vm-cmp-atom vm P1 P2)
+	)
+)
+
+; HALT 
+(defun vm-halt (vm)
+	(set-Symb vm 'state 1)
+)
+
+; NOP
+(defun vm-nop (vm))
+
+; CAR P
+(defun vm-car (vm P)
+	(setf (get vm P) (car (get vm P)))
+)
+
+; CDR P
+(defun vm-cdr (vm P)
+	(setf (get vm P) (cdr (get vm P)))
 )
 
 
+; CONS P1 P2
+(defun vm-cons (vm P1 P2)
+	(setf (get vm P1) (cons (get vm P1) (get vm P2)))
+)
 
-
-
-
- '(defun fibonacci (n) (if (= n 0) 0 (if (= n 1) 1(+ (fibonacci (1- n)) (fibonacci (- n 2)))))) 
+'(defun fibonacci (n) (if (= n 0) 0 (if (= n 1) 1(+ (fibonacci (1- n)) (fibonacci (- n 2)))))) 
