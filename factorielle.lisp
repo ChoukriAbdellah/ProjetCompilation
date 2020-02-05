@@ -1,0 +1,1 @@
+(defun factorielle (n) (if (= n 0) 1 (* n (factorielle (- n 1)))))
