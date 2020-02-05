@@ -1,56 +1,30 @@
-;explication instruction.lisp
- ;la vm :
- ;la vm est une sorte de class avec des attributs 
- ;-name   -> nom de la vm
- ;-       -> taille de la mémoire (représenté sous forme d'un tableau) comme expliqué dans le cours 
-;          La mémoire est un ensemble fini de N cellules (ou mots)
-
-;make vm consiste donc a:
- ;   -associer à chaque registre de base 
- ;   son numéro d'instruction qui correspond à sa valeur 
-
- ;   -initialiser les valeurs des flags à 0
-    
- ;   - et son état  1 = Off et 0 = on 
-
 (require "compilation.lisp")
 ; definit un symbole dans une variable;
 (defun set-Symb (vm nom val)
 ;; voir ça  comme une class (get class attribut) valeur a affecter 
 	(setf (get vm nom) val) 
 )
-; initialisation memoire
-(defun init-mem (nom &optional(taille 1000)) (set-Symb nom 'mem (make-array taille)) )
-; initialisation des flags
+
+(defun init-mem (nom &optional(taille 2500)) (set-Symb nom 'mem (make-array taille)) )
+
 (defun set-flag-init (vm)
 	(set-Symb vm 'DEQ 0)
 	(set-Symb vm 'DPG 0)
 	(set-Symb vm 'DPP 0)
 
 )
+(defun make-vm (nom &optional (taille 2500))
+	(init-mem nom taille) 
 
-; creation de la machine virtuelle (taille de base 1000)
-(defun make-vm (nom &optional (taille 1000))
-	(init-mem nom taille) ; memoire
-
-	;; Registre de base
-	(set-Symb nom 'labels (make-hash-table)) ; label (cle = nom, value = numero instruction)
-	(set-Symb nom 'SP taille) ; stack pointer 	sommet de la pile
-	(set-Symb nom 'MP (- taille (* taille 0.10))) ; max pile
-	(set-Symb nom 'FP taille) ; frame pointer   qui permet de structurer( et donc faciliter )la pile à l'aide des blocs
-	(set-Symb nom 'RA 0) ; return adress
-	(set-Symb nom 'PC 0) ; program counter
+	(set-Symb nom 'labels (make-hash-table))
+	(set-Symb nom 'SP taille)
+	(set-Symb nom 'MP (- taille (* taille 0.10))) 
+	(set-Symb nom 'FP taille) 
+	(set-Symb nom 'RA 0)
+	(set-Symb nom 'PC 0)
 	
-	;; Flag
 	(set-flag-init nom)
 
-	;; Register
-	; (set-Symb nom 'R0 0)
-	; (set-Symb nom 'R1 0)
-	; (set-Symb nom 'R2 0)
-	; (set-Symb nom 'R3 0)
-
-	;; VM State (0 on, 1 off)
 	(set-Symb nom 'state 0)
 )
 
@@ -213,7 +187,7 @@
 		;; incrementer pc (passer a l'instruction suivante)
 		(incf (get vm 'PC))
 	)
-	"Fin de VM"
+	"Execution terminée"
 )
 
 ;; INSTRUCTIONS MACHINE VIRTUELE
