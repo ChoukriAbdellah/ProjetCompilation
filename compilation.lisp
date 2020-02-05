@@ -8,24 +8,7 @@
               (setq result (concatenate 'string result item))))
         result)))
 
-        ; lit dans un fichier a l'adresse path
-(defun readFile (path)
-	;; file in : ouvre le fichier dans path, erreur si n'existe pas, l'ouvre en lecture
-	(let ( (fin (open path :if-does-not-exist :error :direction :input)) )
-		(setf obj '())
-		(setf line (read fin nil nil nil))
-		;; pour chaque ligne de file in faire
-		(loop while (not (equal line nil)) do
-			;; ajouter la ligne a obj
-			(write line)
-			(setq obj (append obj (list line)))
-			(setf line (read fin nil nil nil))
-		)
-		;; fermer file in et retourner obj
-		(close fin)
-		(return-from readFile obj)
-	)
-)
+
 
 (defun type-op(expr) (cond
                         ( (equal expr '+)
@@ -410,6 +393,25 @@ is replaced with replacement."
  		
  	)
 
+        ; lit dans un fichier a l'adresse path
+(defun readFile (path)
+	;; file in : ouvre le fichier dans path, erreur si n'existe pas, l'ouvre en lecture
+	(let ( (fin (open path :if-does-not-exist :error :direction :input)) )
+		(setf obj '())
+		(setf line (read fin nil nil nil))
+		;; pour chaque ligne de file in faire
+		(loop while (not (equal line nil)) do
+			;; ajouter la ligne a obj
+			(write line)
+			(setq obj (append obj (list line)))
+			(setf line (read fin nil nil nil))
+		)
+		;; fermer file in et retourner obj
+		(close fin)
+		(return-from readFile obj)
+	)
+)
+
 ; ecrit str dans un fichier a l'adresse path
 (defun writeFile (path str)
 	;; file out : ouvre le fichier dans path, cree si n'existe pas, ecrase si existe, l'ouvre en ecriture
@@ -449,16 +451,16 @@ is replaced with replacement."
         (lispProgToAsm prog '())
 )
 
-(defun compile-load-prog (vm progr)
+(defun compiler-et-charger-prog (progr)
 	;; compiler
 	(compiler-prog progr)
 	;; charger le code en memoire
-	(charger-fichier vm)
+	(charger-fichier 'demo)
 )
 
-(defun compile-load-fichier (vm path)
+(defun compiler-et-charger-fichier (path)
 	;; compiler
 	(compiler-fichier path)
 	;; charger le code en memoire
-	(charger-fichier vm)
+	(charger-fichier 'demo)
 )
