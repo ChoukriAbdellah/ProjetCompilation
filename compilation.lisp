@@ -102,7 +102,7 @@
                 (list (lispLineToAsm (caddr expr) env) )
                 (list  (format nil "(POP R1)~C" #\linefeed))
                                      
-                (list (format nil "(CMP R0 R1)~C" #\linefeed) )
+                (list (format nil "(CMP R1 R0)~C" #\linefeed) )
                 ; traitement du type de l operateur
                 (type-comp (car expr))
                 
@@ -447,4 +447,18 @@ is replaced with replacement."
 
 (defun compiler-prog (prog)
         (lispProgToAsm prog '())
+)
+
+(defun compile-load-prog (vm progr)
+	;; compiler
+	(compiler-prog progr)
+	;; charger le code en memoire
+	(charger-fichier vm)
+)
+
+(defun compile-load-fichier (vm path)
+	;; compiler
+	(compiler-fichier path)
+	;; charger le code en memoire
+	(charger-fichier vm)
 )

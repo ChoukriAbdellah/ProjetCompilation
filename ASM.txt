@@ -9,7 +9,7 @@
 (PUSH R2) 
 (PUSH R1) 
 (PUSH RA) 
-(JSR FIBONACCI) 
+(JSR FIBO) 
 (POP R1) 
 (MOVE R1 RA) 
 (POP R1) 
