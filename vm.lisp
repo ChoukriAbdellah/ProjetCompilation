@@ -14,7 +14,6 @@
  ;   - et son état  1 = Off et 0 = on 
 
 (require "compilation.lisp")
-
 ; definit un symbole dans une variable;
 (defun set-Symb (vm nom val)
 ;; voir ça  comme une class (get class attribut) valeur a affecter 
@@ -90,11 +89,15 @@
 )
 
 ; compiler et charger le code assembleur dans la memoire
-(defun charger-fichier (vm path)
-	;; compiler
-	(progLispToAsm progr '())
+(defun charger-fichier (vm)
 	;; charger le code en memoire
-	(loader vm (readFile path))
+	(loader vm (readFile "ASM.txt"))
+)
+
+; compiler et charger le code assembleur dans la memoire
+(defun charger-asm (vm asm)
+	;; charger le code en memoire
+	(loader vm asm)
 )
 
 ; On prend la liste des intructions et pour chaque instruction on la charge
@@ -351,5 +354,3 @@
 (defun vm-cons (vm P1 P2)
 	(setf (get vm P1) (cons (get vm P1) (get vm P2)))
 )
-
-'(defun fibonacci (n) (if (= n 0) 0 (if (= n 1) 1(+ (fibonacci (1- n)) (fibonacci (- n 2)))))) 

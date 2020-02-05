@@ -423,12 +423,12 @@ is replaced with replacement."
 
 ; compiler un programme (cree un fichier ASM.txt contenant les instructions assembleurs du programme lisp compile)
 (defun lispProgToAsm (path env)
-	;; variable local comp stockera les instructions apres compilation
+	;; variable local codeFinal stockera les instructions apres compilation
 	;(writeFile "ASM.txt" ;ecrire dans le fichier asm la concatenation des compilation de
         ; chaque ligaqaqne du programme
         (let (codeFinal ) 
                 ;; pour chaque ligne du programme compiler cette ligne
-                (loop for line in (list (readfile path)) do
+                (loop for line in path do
                
                 
                                               
@@ -441,6 +441,10 @@ is replaced with replacement."
 		;
 )
 
+(defun compiler-fichier (path)
+        (lispProgToAsm (readfile path) '())
+)
 
-
- '(defun fibonacci (n) (if (= n 0) 0 (if (= n 1) 1(+ (fibonacci (1- n)) (fibonacci (- n 2)))))) 
+(defun compiler-prog (prog)
+        (lispProgToAsm prog '())
+)
