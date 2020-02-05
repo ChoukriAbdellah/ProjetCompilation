@@ -32,7 +32,7 @@
 
 
      
-(append (list (format nil "nano" #\linefeed) (list 1 2)))
+;(append (list (format nil "nano" #\linefeed) (list 1 2)))
 
  (defun expr-arith (expr env)
        
@@ -86,19 +86,16 @@
                 (list  (format nil "(POP R1)~C" #\linefeed))
                                      
                 (list (format nil "(CMP R1 R0)~C" #\linefeed) )
-                ; traitement du type de l operateur
+                
+		;compile l'opérateur
                 (type-comp (car expr))
                 
-                ; si le teste est vrai (on ferra les affectations lors de l execution)
-                ; car pour le moment on connais les ce que contion le teste
-                ;
-                ;Si test faux : exemple( du cours R0 = 2 R1 =4 ) 
-                ;CMP R0 R1 => 100 (FLT est mis a vrai 1 et les autre a faux 0
+                
                 ; car 2 plus petit que 4)
                 (list (format nil "(MOVE 0 R0)~C" #\linefeed) )
                 (list (format nil "(JMP 1) ~C" #\linefeed) )
 
-		;;Si vrai on récupere et réalise l insctruction cas vrai
+		;;si vrai
                 (list (format nil "(MOVE 1 R0)~C" #\linefeed) )
         
         )
@@ -108,32 +105,29 @@
   )       
 
 (defun queue-liste (expr &optional env  )
-	;; variable local comp stockera les instructions apres compilation
-		;; si la variable entrante de cdr est un atome, stocker l'instruction assembleur cdr
-		;; sinon retourner liste vide
+		;; si la tete de cdr est un atome, retourner l'instruction qui contient cdr
 		(if (atom (cadr expr))
-                (list (format nil "(CDR ~a)~C" (cadr expr) #\linefeed) )
-		(list '())	
+                	(list (format nil "(CDR ~a)~C" (cadr expr) #\linefeed) )
+		
+			;; sinon retourner la liste vide
+			(list '())	
 		)
-
-	)
-; compiler les car de liste
-(defun tete-liste (expr &optionalenv )
-	;; variable local comp stockera les instructions apres compilation
+)
+; compiler les tête de liste
+(defun tete-liste (expr &optionalenv)
 	(if (atom (cadr expr))
-                (list (format nil "(CAR ~a)~C" (cadr expr) #\linefeed) )
+        	(list (format nil "(CAR ~a)~C" (cadr expr) #\linefeed) )
 		(list '())	
-		)
-
 	)
-
-
-;;Compile une line vide et la remplace par l'instruction assembleur NOP
-(defun compile-skip()
-        (list (format nil "(NOP)~C"  #\linefeed) )
-
 )
 
+
+;; compiler une instruction vide
+(defun compile-skip()
+        (list (format nil "(NOP)~C"  #\linefeed) )
+)
+
+;; return true si op est un opérateur
  (defun operateur? (op)
  
                 (cond 
@@ -144,16 +138,11 @@
                     ((numberp op)  T )
                     ;else
                     (t nil)
-
-                        )
-                                        
-                
-        )
+		)
+)
 
 
 
-
-;; Predicates
 ; foncton trouvé sur stackoverflow qui permet de compter le nombre d occ de subString dans string
 ;https://stackoverflow.com/questions/35061185/trouble-counting-subseq-of-a-string-common-lisp
 (defun count-substrings (substring string)
@@ -201,13 +190,12 @@
                                         -1)  #\linefeed))
                 (list (lispLineToAsm (caddr instruction) env) );cas true 
 
-                ;Sortie de la boucle si la condition est fasse 
+                ;Si faux sortir de la boucle 
                 (list  (format nil "(JMP ~a)~C" ( + (- (count #\newline (write-to-string (caddr instruction)))
                                                         (count-substrings "LABEL" (write-to-string (caddr instruction) ))
-                                                        -1) ;; nmobre de saut = nombre d instruction qu'on fait 
-                                                        ;; si la condition est vraie + le nombre d instruction
-                                                        ;; qu'on réalise dans  le if => jump a(ux) l'insctruction(s)
-                                                        ;; false  
+                                                        -1) 
+                                                        ;; test faux  
+						        ;calcule le nombre de ligne qu'on saute
                                                         (- (count #\newline (write-to-string (cadr instruction)))
                                                         (count-substrings "LABEL" (write-to-string (cadr instruction) ))
                                                         ))
@@ -230,6 +218,8 @@
 		
 	
 )
+
+
 ; remplacer les paramètres par leur registre
 (defun replace-params-reg (string_ env ) 
 	(let  ( comp) 
@@ -264,21 +254,8 @@ is replaced with replacement."
     )
 )
 
-; compiler une ligne
-
-(defun compile-setf (expr env)
-	(concatString (append 
-		;; compiler la valeur a stocker dans la variable
-                       (list ( expr-arith  (third expr) env) )
-                        ;; stocker la variable dans l'environement et lui affecter un registre
-                        (list (replace-params-reg (format nil "setf fonction(MOVE R0 ~a ) ~%"   (second expr)) env))
-                
-	              )
-        )
-)
 
 (defun appel-de-fonction (call env)
-	;; variable local comp stockera les instructions apres compilation
 	;; variable local nbParam stockera le nombre de parametre de la fonction
 	(let (retour nbParam)
 		(setf nbParam 0)
@@ -289,7 +266,7 @@ is replaced with replacement."
 
 			(setf retour (append retour (list (lispLineToAsm  arg env))  
 			(list (format nil "(PUSH R0) ~%" ) ) ) ) 
-			(setf nbParam (+ nbParam 1)) ; erreur!!
+			(setf nbParam (+ nbParam 1)) ; 
 		)
 		
                         (setf retour (append retour
@@ -353,7 +330,6 @@ is replaced with replacement."
 )
 
 
-;; fonction facile mais a modidier 
 ; donner la valeur de la dernière variable d'environnement
 (defun lastValueEnv(env)
 	(if (null env)
@@ -382,7 +358,6 @@ is replaced with replacement."
  			((equal (car line) 'if) (expr-if line env)) ;; compile if
  			((equal (car line) 'defun)  (compile-fonction line env)) ;; compile fonction (si defun)
  			((equal (car line) 'while)  (expr-while line env)) ;; compile while 
- 			((equal (car line) 'setf)  (compile-setf line env)) ;; compile setf
  			((equal (car line) 'car) (tete-liste line env)) ;; compile car
  			((equal (car line) 'cdr) (queue-liste line env)) ;; compile cdr
  			((operateur? (car line)) (expr-arith line env)) ;; compile expression si la ligne effectue une operation arithmetique
@@ -423,7 +398,7 @@ is replaced with replacement."
 )
 
 
-; compiler un programme (cree un fichier ASM.txt contenant les instructions assembleurs du programme lisp compile)
+; compile une liste correespondant au code lisp en code assembleur qui sera dstocker dans un fichier asm.txtt
 (defun lispProgToAsm (path env)
 	;; variable local codeFinal stockera les instructions apres compilation
 	;(writeFile "ASM.txt" ;ecrire dans le fichier asm la concatenation des compilation de
